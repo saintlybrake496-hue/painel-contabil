@@ -13,7 +13,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-// Referências das "tabelas" na nuvem
 const refAtivas = database.ref('obr_ativas');
 const refConcluidas = database.ref('obr_concluidas');
 
@@ -21,16 +20,11 @@ const refConcluidas = database.ref('obr_concluidas');
 function mostrarTela(idTela) {
     document.querySelectorAll('.tela-section').forEach(tela => tela.classList.remove('ativo'));
     document.getElementById(idTela).classList.add('ativo');
-    
-    // No Firebase, não precisamos chamar renderizar toda hora, 
-    // pois ele atualiza sozinho quando os dados mudam (veja os "on value" abaixo)
 }
 
-// --- ESCUTAR O BANCO EM TEMPO REAL (MUITO IMPORTANTE) ---
-// Isso faz com que, se você abrir em outro PC, os dados apareçam sozinhos
+// --- ESCUTAR O BANCO EM TEMPO REAL ---
 refAtivas.on('value', (snapshot) => {
-    const dados = snapshot.val();
-    renderizarPainel(dados);
+    renderizarPainel(snapshot.val());
 });
 
 refConcluidas.on('value', (snapshot) => {
@@ -39,31 +33,49 @@ refConcluidas.on('value', (snapshot) => {
     renderizarEstorno(dados);
 });
 
-// --- FUNÇÕES DE PERSISTÊNCIA (SALVAR NA NUVEM) ---
+// --- FUNÇÕES DE PERSISTÊNCIA ---
 
 function adicionarObrigacao() {
     const empresa = document.getElementById('empresa').value;
     const titulo = document.getElementById('titulo').value;
     const vencimento = document.getElementById('dataVencimento').value;
 
-    if (!empresa || !titulo || !vencimento) return alert("Preencha os campos obrigatórios!");
+    if (!empresa || !titulo || !vencimento) return alert("Preencha tudo!");
 
-    const id = Date.now();
-    const novaObr = { 
-        id: id, 
-        empresa: empresa.toUpperCase(), 
-        titulo: titulo.toUpperCase(), 
-        vencimento: vencimento 
-    };
+    const id = Date.now().toString();
+    refAtivas.child(id).set({
+        id: id,
+        empresa: empresa.toUpperCase(),
+        titulo: titulo.toUpperCase(),
+        vencimento: vencimento
+    });
 
-    // Salva no Firebase
-    refAtivas.child(id).set(novaObr);
-
-    // Limpa campos e volta para o painel
     document.getElementById('empresa').value = "";
     document.getElementById('titulo').value = "";
     document.getElementById('dataVencimento').value = "";
     mostrarTela('tela-painel');
+}
+
+function concluirObrigacao(id, empresa, titulo, vencimento) {
+    if(confirm(`Concluir "${titulo}" de ${empresa}?`)) {
+        const dataFechamento = new Date().toLocaleDateString('pt-BR');
+        
+        // Move para concluídas e depois remove das ativas
+        refConcluidas.child(id).set({
+            id, empresa, titulo, vencimento, dataFechamento
+        }).then(() => {
+            refAtivas.child(id).remove();
+        });
+    }
+}
+
+function reativarObrigacao(id, empresa, titulo, vencimento) {
+    if(confirm(`Reativar "${titulo}"?`)) {
+        refAtivas.child(id).set({ id, empresa, titulo, vencimento }).then(() => {
+            refConcluidas.child(id).remove();
+        });
+        mostrarTela('tela-painel');
+    }
 }
 
 function gerarObrigacoesPadrao() {
@@ -72,8 +84,8 @@ function gerarObrigacoesPadrao() {
 
     if(confirm("Gerar obrigações para GERAL no dia 10?")) {
         titulos.forEach(t => {
-            const id = Date.now() + Math.random();
-            refAtivas.child(id.toString().replace('.', '')).set({
+            const id = (Date.now() + Math.random()).toString().replace('.', '');
+            refAtivas.child(id).set({
                 id: id,
                 empresa: "GERAL",
                 titulo: t,
@@ -84,49 +96,24 @@ function gerarObrigacoesPadrao() {
     }
 }
 
-function concluirObrigacao(id, empresa, titulo, vencimento) {
-    if(confirm(`Concluir "${titulo}" de ${empresa}?`)) {
-        const dataFechamento = new Date().toLocaleDateString('pt-BR');
-        
-        // Adiciona na tabela de concluídas
-        refConcluidas.child(id).set({
-            id, empresa, titulo, vencimento, dataFechamento
-        });
-
-        // Remove da tabela de ativas
-        refAtivas.child(id).remove();
-    }
-}
-
-function reativarObrigacao(id, empresa, titulo, vencimento) {
-    if(confirm(`Reativar "${titulo}"?`)) {
-        // Volta para ativas
-        refAtivas.child(id).set({ id, empresa, titulo, vencimento });
-        // Remove de concluídas
-        refConcluidas.child(id).remove();
-        mostrarTela('tela-painel');
-    }
-}
-
 // --- RENDERIZAÇÃO ---
 
 function renderizarPainel(dados) {
     const container = document.getElementById('painel-cards');
     if(!container) return;
     container.innerHTML = '';
-    
-    if(!dados) return; // Se o banco estiver vazio
+    if(!dados) return;
 
     const hoje = new Date().toISOString().split('T')[0];
     
-    // Transforma o objeto do Firebase em lista e ordena por data
-    const lista = Object.values(dados).sort((a, b) => new Date(a.vencimento) - new Date(b.vencimento));
-
-    lista.forEach(o => {
+    // Pegamos a chave exata do Firebase para deletar corretamente depois
+    Object.keys(dados).forEach(chave => {
+        const o = dados[chave];
         const isVencido = o.vencimento < hoje;
+        
         container.innerHTML += `
             <div class="card ${isVencido ? 'vencido' : ''}" 
-                 onclick="concluirObrigacao('${o.id}', '${o.empresa}', '${o.titulo}', '${o.vencimento}')">
+                 onclick="concluirObrigacao('${chave}', '${o.empresa}', '${o.titulo}', '${o.vencimento}')">
                 <div class="empresa-tag">${o.empresa}</div>
                 <h2>${o.titulo}</h2>
                 <p>Vencimento: ${o.vencimento.split('-').reverse().join('/')}</p>
@@ -139,13 +126,9 @@ function renderizarConsulta(dados) {
     const listaDiv = document.getElementById('lista-consulta');
     if(!listaDiv) return;
     listaDiv.innerHTML = '';
-    
-    if(!dados) {
-        listaDiv.innerHTML = '<p>Nenhuma obrigação concluída.</p>';
-        return;
-    }
+    if(!dados) return;
 
-    Object.values(dados).slice().reverse().forEach(o => {
+    Object.values(dados).reverse().forEach(o => {
         listaDiv.innerHTML += `
             <div class="consulta-item">
                 <strong>${o.empresa}</strong> - ${o.titulo} 
@@ -158,17 +141,16 @@ function renderizarEstorno(dados) {
     const listaDiv = document.getElementById('lista-estorno');
     if(!listaDiv) return;
     listaDiv.innerHTML = '';
-    
     if(!dados) return;
 
-    Object.values(dados).forEach(o => {
+    Object.keys(dados).forEach(chave => {
+        const o = dados[chave];
         listaDiv.innerHTML += `
-            <div class="card-estorno" onclick="reativarObrigacao('${o.id}', '${o.empresa}', '${o.titulo}', '${o.vencimento}')">
+            <div class="card-estorno" onclick="reativarObrigacao('${chave}', '${o.empresa}', '${o.titulo}', '${o.vencimento}')">
                 <span>${o.empresa} - ${o.titulo}</span>
                 <span>🔄 REATIVAR</span>
             </div>`;
     });
 }
 
-// Inicializa a tela
 mostrarTela('tela-painel');
