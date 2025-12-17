@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestão de Obrigações</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar">
+    <div class="sidebar-content">
+        <div class="menu-icon">☰</div>
+        <div class="nav-buttons">
+            <button class="btn-nav" onclick="mostrarTela('tela-painel')">
+                <span class="icon">📺</span> <span class="text">PAINEL</span>
+            </button>
+            <button class="btn-nav" onclick="mostrarTela('tela-cadastro')">
+                <span class="icon">➕</span> <span class="text">CADASTRAR</span>
+            </button>
+            <button class="btn-nav" onclick="mostrarTela('tela-consulta')">
+                <span class="icon">🔍</span> <span class="text">CONSULTAR</span>
+            </button>
+            <button class="btn-nav" onclick="mostrarTela('tela-estorno')">
+                <span class="icon">🔄</span> <span class="text">REATIVAR</span>
+            </button>
+        </div>
+    </div>
+</nav>
+
+<main class="main-content">
+    <section id="tela-painel" class="tela-section ativo">
+        <div class="header-tela"><h1>PAINEL DE VENCIMENTOS</h1></div>
+        <div id="painel-cards" class="painel-grid"></div>
+    </section>
+
+    <section id="tela-cadastro" class="tela-section">
+        <div class="header-tela"><h1>NOVA OBRIGAÇÃO</h1></div>
+        <div class="import-box">
+            <h3>Importação Rápida (Vencimento Dia 10)</h3>
+            <p>Gerar automaticamente obrigações para a empresa <strong>GERAL</strong>:</p>
+            <button class="btn-importar" onclick="gerarObrigacoesPadrao()">⚡ GERAR OBRIGAÇÕES DO MÊS</button>
+        </div>
+        <div class="form-container">
+            <h3>Cadastro Manual</h3>
+            <div class="input-group">
+                <label>Empresa</label>
+                <input type="text" id="empresa" placeholder="Nome da Empresa">
+            </div>
+            <div class="input-group">
+                <label>Obrigação</label>
+                <input type="text" id="titulo" placeholder="Ex: SIMPLES NACIONAL">
+            </div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label>Data de Vencimento</label>
+                    <input type="date" id="dataVencimento">
+                </div>
+                <div class="input-group">
+                    <label>Data de Envio (Opcional)</label>
+                    <input type="date" id="dataEnvio">
+                </div>
+            </div>
+            <button class="btn-grande" onclick="adicionarObrigacao()">SALVAR OBRIGAÇÃO</button>
+        </div>
+    </section>
+
+    <section id="tela-consulta" class="tela-section">
+        <div class="header-tela"><h1>HISTÓRICO DE CONCLUÍDAS</h1></div>
+        <div id="lista-consulta" class="consulta-lista"></div>
+    </section>
+
+    <section id="tela-estorno" class="tela-section">
+        <div class="header-tela"><h1>REATIVAR OBRIGAÇÃO</h1></div>
+        <p style="margin-bottom: 20px; color: #888;">Clique na obrigação para devolvê-la ao Painel Principal.</p>
+        <div id="lista-estorno" class="consulta-lista"></div>
+    </section>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<script src="script.js"></script>
+</body>
+</html>
